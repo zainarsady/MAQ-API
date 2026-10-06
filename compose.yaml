@@ -1,0 +1,7 @@
+﻿services:
+  maq_api:
+    image: maq_api
+    build:
+      context: .
+      dockerfile: MAQ_API/Dockerfile
+

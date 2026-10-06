@@ -1,0 +1,6 @@
+@MAQ_API_HostAddress = http://localhost:5063
+
+GET {{MAQ_API_HostAddress}}/api/tempahanramadan
+Accept: application/json
+
+###
