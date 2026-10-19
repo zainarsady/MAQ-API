@@ -14,6 +14,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36))));
 builder.Services.AddScoped<ITempahanRamadanService, TempahanRamadanService>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<INewsService, NewsService>();
 
 var app = builder.Build();
 

@@ -7,8 +7,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<TempahanRamadan> TempahanRamadans => Set<TempahanRamadan>();
 
+    public DbSet<Event> Events => Set<Event>();
+    public DbSet<Registration> Registrations => Set<Registration>();
+    public DbSet<News> News => Set<News>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Event>(e =>
+        {
+            e.Property(x => x.EventType).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Image).HasColumnType("longblob");
+            e.Property(x => x.Description).HasColumnType("text");
+            e.HasMany(x => x.Registrations).WithOne().HasForeignKey(r => r.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<News>(n =>
+        {
+            n.Property(x => x.Type).HasConversion<string>().HasMaxLength(20);
+            n.Property(x => x.Image).HasColumnType("longblob");
+            n.Property(x => x.BlogContent).HasColumnType("longtext");
+        });
+
         var entity = modelBuilder.Entity<TempahanRamadan>();
 
         entity.HasIndex(t => new { t.ICNumber, t.BookedDate }).IsUnique();
