@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Event> Events => Set<Event>();
     public DbSet<Registration> Registrations => Set<Registration>();
     public DbSet<News> News => Set<News>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             n.Property(x => x.Type).HasConversion<string>().HasMaxLength(20);
             n.Property(x => x.Image).HasColumnType("longblob");
             n.Property(x => x.BlogContent).HasColumnType("longtext");
+        });
+
+        modelBuilder.Entity<Payment>(p =>
+        {
+            p.HasIndex(x => x.PaymentCode).IsUnique();
+            p.HasIndex(x => x.ReferenceCode);
+            p.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            p.HasOne<TempahanRamadan>().WithMany().HasForeignKey(x => x.TempahanRamadanId).OnDelete(DeleteBehavior.SetNull);
         });
 
         var entity = modelBuilder.Entity<TempahanRamadan>();

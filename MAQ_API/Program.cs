@@ -1,4 +1,5 @@
 using MAQ_API.Data;
+using MAQ_API.Options;
 using MAQ_API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +18,20 @@ builder.Services.AddScoped<ITempahanRamadanService, TempahanRamadanService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddScoped<INewsService, NewsService>();
+
+builder.Services.AddOptions<HerepayOptions>()
+    .Bind(builder.Configuration.GetSection(HerepayOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IHerepayClient, HerepayClient>((sp, client) =>
+{
+    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HerepayOptions>>().Value;
+    client.BaseAddress = new Uri(opt.BaseUrl.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Add("SecretKey", opt.SecretKey);
+    client.DefaultRequestHeaders.Add("XApiKey", opt.ApiKey);
+    client.Timeout = TimeSpan.FromSeconds(4); // callback must answer within ~5 s
+});
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
