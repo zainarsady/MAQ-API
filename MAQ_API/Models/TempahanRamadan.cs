@@ -21,7 +21,10 @@ public class TempahanRamadan
 
     [Range(1, 120)]
     public int Age { get; set; }
-
+    
+    [MaxLength(100)]
+    public string ArwahName { get; set; } = string.Empty;
+    
     [Required, MaxLength(200)]
     public string Address { get; set; } = string.Empty;
 

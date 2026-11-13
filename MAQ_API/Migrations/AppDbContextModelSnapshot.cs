@@ -267,6 +267,11 @@ namespace MAQ_API.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(10,2)");
 
+                    b.Property<string>("ArwahName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<DateOnly>("BookedDate")
                         .HasColumnType("date");
 
@@ -304,6 +309,7 @@ namespace MAQ_API.Migrations
                             Address = "No 1, Jalan Contoh, 50000 Kuala Lumpur",
                             Age = 36,
                             Amount = 350.00m,
+                            ArwahName = "",
                             BookedDate = new DateOnly(2027, 2, 20),
                             ContactNumber = "0123456789",
                             CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -316,6 +322,7 @@ namespace MAQ_API.Migrations
                             Address = "No 2, Jalan Contoh, 40000 Shah Alam",
                             Age = 41,
                             Amount = 500.00m,
+                            ArwahName = "",
                             BookedDate = new DateOnly(2027, 2, 21),
                             ContactNumber = "0198765432",
                             CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),

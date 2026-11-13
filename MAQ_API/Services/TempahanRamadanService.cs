@@ -82,6 +82,7 @@ public class TempahanRamadanService(AppDbContext db) : ITempahanRamadanService
         booking.ContactNumber = request.ContactNumber;
         booking.ICNumber = request.ICNumber;
         booking.Age = request.Age;
+        booking.ArwahName = request.ArwahName ?? string.Empty;
         booking.Address = request.Address;
         booking.Amount = request.Amount;
     }

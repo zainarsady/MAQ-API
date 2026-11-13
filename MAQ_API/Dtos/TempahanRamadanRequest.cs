@@ -8,5 +8,6 @@ public record TempahanRamadanRequest(
     [Required, MaxLength(20)] string ContactNumber,
     [Required, MaxLength(20)] string ICNumber,
     [Range(1, 120)] int Age,
+    [MaxLength(100)] string? ArwahName,
     [Required, MaxLength(200)] string Address,
     [Range(0, 99999999.99)] decimal Amount);
