@@ -8,7 +8,7 @@ namespace MAQ_API.Services;
 
 public class TempahanRamadanService(AppDbContext db) : ITempahanRamadanService
 {
-    private const int MaxBookingsPerDay = 20;
+    public const int MaxBookingsPerDay = 20;
 
     public Task<List<TempahanRamadan>> GetAllAsync() =>
         db.TempahanRamadans.AsNoTracking().OrderBy(t => t.BookedDate).ThenBy(t => t.TempahanRamadanId).ToListAsync();
@@ -49,13 +49,37 @@ public class TempahanRamadanService(AppDbContext db) : ITempahanRamadanService
         return true;
     }
 
+    public const int MaxAvailabilityRangeDays = 366;
+
+    public async Task<List<DateAvailabilityResponse>> GetAvailabilityAsync(DateOnly? from, DateOnly? to)
+    {
+        var query = db.TempahanRamadans.AsNoTracking()
+            .Where(t => db.Payments.Any(p =>
+                p.TempahanRamadanId == t.TempahanRamadanId && p.Status == PaymentStatus.Paid));
+        if (from is not null) query = query.Where(t => t.BookedDate >= from);
+        if (to is not null) query = query.Where(t => t.BookedDate <= to);
+
+        var counts = (await query
+                .GroupBy(t => t.BookedDate)
+                .Select(g => new { Date = g.Key, Booked = g.Count() })
+                .ToListAsync())
+            .ToDictionary(x => x.Date, x => x.Booked);
+
+        IEnumerable<DateOnly> dates = counts.Keys.Order();
+        if (from is not null && to is not null)
+            dates = Enumerable.Range(0, to.Value.DayNumber - from.Value.DayNumber + 1)
+                .Select(i => from.Value.AddDays(i));
+
+        return dates.Select(d =>
+        {
+            var booked = counts.GetValueOrDefault(d);
+            return new DateAvailabilityResponse(d, MaxBookingsPerDay, booked, Math.Max(0, MaxBookingsPerDay - booked));
+        }).ToList();
+    }
+
     private async Task EnsureRulesAsync(TempahanRamadanRequest request, int excludeId)
     {
         var date = request.BookedDate!.Value;
-
-        if (await db.TempahanRamadans.AnyAsync(t =>
-                t.ICNumber == request.ICNumber && t.BookedDate == date && t.TempahanRamadanId != excludeId))
-            throw new DuplicateBookingException();
 
         if (await db.TempahanRamadans.CountAsync(t =>
                 t.BookedDate == date && t.TempahanRamadanId != excludeId) >= MaxBookingsPerDay)
@@ -64,15 +88,7 @@ public class TempahanRamadanService(AppDbContext db) : ITempahanRamadanService
 
     private async Task SaveAsync()
     {
-        try
-        {
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException)
-        {
-            // Unique (ICNumber, BookedDate) index hit between the check and the insert.
-            throw new DuplicateBookingException();
-        }
+        await db.SaveChangesAsync();
     }
 
     private static void Apply(TempahanRamadan booking, TempahanRamadanRequest request)

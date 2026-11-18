@@ -1,9 +1,12 @@
 using MAQ_API.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace MAQ_API.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options)
+    : IdentityDbContext<IdentityUser, IdentityRole, string>(options)
 {
     public DbSet<TempahanRamadan> TempahanRamadans => Set<TempahanRamadan>();
 
@@ -11,9 +14,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Registration> Registrations => Set<Registration>();
     public DbSet<News> News => Set<News>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<FinancialTransaction> FinancialTransactions => Set<FinancialTransaction>();
+    public DbSet<CompanyFinance> CompanyFinances => Set<CompanyFinance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Event>(e =>
         {
             e.Property(x => x.EventType).HasConversion<string>().HasMaxLength(20);
@@ -37,9 +44,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             p.HasOne<TempahanRamadan>().WithMany().HasForeignKey(x => x.TempahanRamadanId).OnDelete(DeleteBehavior.SetNull);
         });
 
+        modelBuilder.Entity<FinancialTransaction>(f =>
+        {
+            f.Property(x => x.Category).HasConversion<string>().HasMaxLength(20);
+            f.Property(x => x.Source).HasConversion<string>().HasMaxLength(20);
+            f.HasIndex(x => x.PaymentId).IsUnique(); // one ledger row per payment
+            f.HasIndex(x => x.CreatedAt);
+            f.HasOne<Payment>().WithMany().HasForeignKey(x => x.PaymentId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CompanyFinance>().HasData(
+            new CompanyFinance { Id = CompanyFinance.SingletonId, Balance = 0m, UpdatedAt = new DateTime(2026, 11, 18, 0, 0, 0, DateTimeKind.Utc) });
+
         var entity = modelBuilder.Entity<TempahanRamadan>();
 
-        entity.HasIndex(t => new { t.ICNumber, t.BookedDate }).IsUnique();
         entity.HasIndex(t => t.BookedDate);
 
         entity.HasData(

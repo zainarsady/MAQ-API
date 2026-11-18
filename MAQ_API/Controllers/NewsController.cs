@@ -1,6 +1,8 @@
+using MAQ_API.Data;
 using MAQ_API.Dtos;
 using MAQ_API.Exceptions;
 using MAQ_API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MAQ_API.Controllers;
@@ -28,6 +30,7 @@ public class NewsController(INewsService service) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = Roles.Admin)]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<NewsResponse>> PostNews([FromForm] NewsRequest request)
     {
@@ -43,6 +46,7 @@ public class NewsController(INewsService service) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<NewsResponse>> UpdateNews(int id, [FromForm] NewsRequest request)
     {
@@ -58,6 +62,7 @@ public class NewsController(INewsService service) : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> DeleteNews(int id) =>
         await service.DeleteAsync(id) ? NoContent() : NotFound();
 }

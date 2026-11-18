@@ -10,4 +10,5 @@ public interface ITempahanRamadanService
     Task<TempahanRamadan> CreateAsync(TempahanRamadanRequest request);
     Task<TempahanRamadan?> UpdateAsync(int id, TempahanRamadanRequest request);
     Task<bool> DeleteAsync(int id);
+    Task<List<DateAvailabilityResponse>> GetAvailabilityAsync(DateOnly? from, DateOnly? to);
 }

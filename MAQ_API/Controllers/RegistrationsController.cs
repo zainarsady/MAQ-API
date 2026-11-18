@@ -1,7 +1,9 @@
+using MAQ_API.Data;
 using MAQ_API.Dtos;
 using MAQ_API.Exceptions;
 using MAQ_API.Models;
 using MAQ_API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MAQ_API.Controllers;
@@ -11,6 +13,7 @@ namespace MAQ_API.Controllers;
 public class RegistrationsController(IRegistrationService service) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<Registration>>> GetRegistrations(int eventId)
     {
         var registrations = await service.GetAllAsync(eventId);
@@ -18,6 +21,7 @@ public class RegistrationsController(IRegistrationService service) : ControllerB
     }
 
     [HttpGet("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<Registration>> GetRegistrationById(int eventId, int id)
     {
         var registration = await service.GetByIdAsync(eventId, id);
@@ -42,6 +46,7 @@ public class RegistrationsController(IRegistrationService service) : ControllerB
     }
 
     [HttpPut("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<Registration>> UpdateRegistration(int eventId, int id, RegistrationRequest request)
     {
         try
@@ -56,6 +61,7 @@ public class RegistrationsController(IRegistrationService service) : ControllerB
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> DeleteRegistration(int eventId, int id) =>
         await service.DeleteAsync(eventId, id) ? NoContent() : NotFound();
 }

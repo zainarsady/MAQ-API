@@ -14,6 +14,7 @@ namespace MAQ_API.Services;
 public class PaymentService(
     AppDbContext db,
     IHerepayClient herepay,
+    IFinanceService finance,
     IOptions<HerepayOptions> options,
     ILogger<PaymentService> logger) : IPaymentService
 {
@@ -102,6 +103,7 @@ public class PaymentService(
             return; // left Pending; reconciliation will retry
 
         var now = DateTime.UtcNow;
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         payment.Status = newStatus;
         if (newStatus == PaymentStatus.Paid) payment.PaidAt = now;
         payment.ReferenceCode = Truncate(Get(fields, "reference_code"), 100);
@@ -111,6 +113,8 @@ public class PaymentService(
         payment.StatusMessage = Truncate(Get(fields, "message"), 500);
         payment.UpdatedAt = now;
         await db.SaveChangesAsync(ct);
+        if (newStatus == PaymentStatus.Paid && !await RecordIncomeAsync(payment, ct)) return; // already counted
+        await tx.CommitAsync(ct);
     }
 
     public async Task<PaymentStatusResponse?> GetStatusAsync(string paymentCode, CancellationToken ct = default)
@@ -139,14 +143,33 @@ public class PaymentService(
             };
             if (status == PaymentStatus.Pending) return;
 
+            await using var dbTx = await db.Database.BeginTransactionAsync(ct);
             payment.Status = status;
             if (status == PaymentStatus.Paid) payment.PaidAt = DateTime.UtcNow;
             payment.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(ct);
+            if (status == PaymentStatus.Paid && !await RecordIncomeAsync(payment, ct)) return;
+            await dbTx.CommitAsync(ct);
         }
         catch (HerepayException ex)
         {
             logger.LogWarning(ex, "Reconcile failed for {PaymentCode}", payment.PaymentCode);
+        }
+    }
+
+    /// <summary>Adds the payment to the ledger. False if it was already counted (unique PaymentId hit).</summary>
+    private async Task<bool> RecordIncomeAsync(Payment payment, CancellationToken ct)
+    {
+        try
+        {
+            await finance.RecordIncomeAsync(payment.Amount, FinanceCategory.TempahanRamadan, FinanceSource.Herepay,
+                payment.Description, payment.Id, ct);
+            return true;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogWarning(ex, "Payment {PaymentCode} already in ledger", payment.PaymentCode);
+            return false;
         }
     }
 
