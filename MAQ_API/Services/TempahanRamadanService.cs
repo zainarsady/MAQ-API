@@ -15,11 +15,81 @@ public class TempahanRamadanService(AppDbContext db) : ITempahanRamadanService
     /// <summary>TEMPORARY test amount for the test button. Counts as 0 slots (2 / 300 truncates to 0), so it never uses capacity. Remove before go-live.</summary>
     public const decimal TestAmount = 2m;
 
-    public Task<List<TempahanRamadan>> GetAllAsync() =>
-        db.TempahanRamadans.AsNoTracking().OrderBy(t => t.BookedDate).ThenBy(t => t.TempahanRamadanId).ToListAsync();
+    public async Task<List<TempahanRamadanResponse>> GetAllAsync()
+    {
+        var bookings = await db.TempahanRamadans.AsNoTracking()
+            .OrderBy(t => t.BookedDate).ThenBy(t => t.TempahanRamadanId)
+            .ToListAsync();
 
-    public Task<TempahanRamadan?> GetByIdAsync(int id) =>
-        db.TempahanRamadans.AsNoTracking().FirstOrDefaultAsync(t => t.TempahanRamadanId == id);
+        var statuses = await GetPaymentStatusesAsync(bookings.Select(t => t.TempahanRamadanId).ToList());
+
+        return bookings
+            .Select(t => TempahanRamadanResponse.From(t, statuses.GetValueOrDefault(t.TempahanRamadanId)))
+            .ToList();
+    }
+
+    public async Task<TempahanRamadanResponse?> GetByIdAsync(int id)
+    {
+        var booking = await db.TempahanRamadans.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TempahanRamadanId == id);
+        if (booking is null) return null;
+
+        var statuses = await GetPaymentStatusesAsync([id]);
+        return TempahanRamadanResponse.From(booking, statuses.GetValueOrDefault(id));
+    }
+
+    /// <summary>
+    /// Anonymous endpoint: names of bookings for <paramref name="date"/> that have at least one Paid
+    /// payment. One row per booking (multiple attempts collapse); only id and name are exposed.
+    /// </summary>
+    public async Task<List<DonorResponse>> GetPaidDonorsAsync(DateOnly date)
+    {
+        var donors = await db.TempahanRamadans.AsNoTracking()
+            .Where(t => t.BookedDate == date && db.Payments.Any(p =>
+                p.TempahanRamadanId == t.TempahanRamadanId && p.Status == PaymentStatus.Paid))
+            .OrderBy(t => t.TempahanRamadanId)
+            .Select(t => new { t.TempahanRamadanId, t.CustomerName })
+            .ToListAsync();
+
+        return donors
+            .Select(d => new DonorResponse(d.TempahanRamadanId.ToString(), d.CustomerName))
+            .ToList();
+    }
+
+    /// <summary>Payment status per booking: Paid wins, then Pending, then Failed, null if none.</summary>
+    private async Task<Dictionary<int, PaymentStatus?>> GetPaymentStatusesAsync(IReadOnlyCollection<int> bookingIds)
+    {
+        if (bookingIds.Count == 0) return [];
+
+        var rows = await db.Payments.AsNoTracking()
+            .Where(p => p.TempahanRamadanId != null && bookingIds.Contains(p.TempahanRamadanId.Value))
+            .Select(p => new { p.TempahanRamadanId, p.Status })
+            .ToListAsync();
+
+        return rows
+            .GroupBy(r => r.TempahanRamadanId!.Value)
+            .ToDictionary(g => g.Key, g => AggregateStatus(g.Select(r => r.Status)));
+    }
+
+    private static PaymentStatus? AggregateStatus(IEnumerable<PaymentStatus> statuses)
+    {
+        PaymentStatus? result = null;
+        foreach (var status in statuses)
+        {
+            switch (status)
+            {
+                case PaymentStatus.Paid:
+                    return PaymentStatus.Paid; // a successful attempt is final
+                case PaymentStatus.Pending:
+                    result = PaymentStatus.Pending; // a retry in flight beats an older failure
+                    break;
+                case PaymentStatus.Failed:
+                    result ??= PaymentStatus.Failed;
+                    break;
+            }
+        }
+        return result;
+    }
 
     public async Task<TempahanRamadan> CreateAsync(TempahanRamadanRequest request)
     {

@@ -16,17 +16,15 @@ public class TempahanRamadan
     [Required, MaxLength(20)]
     public string ContactNumber { get; set; } = string.Empty;
 
-    [MaxLength(20)]
-    public string ICNumber { get; set; } = string.Empty;
-
-    [Range(1, 120)]
-    public int Age { get; set; }
+    [MaxLength(20)] public string? ICNumber { get; set; } = string.Empty;
+    public int? Age { get; set; }
     
-    [MaxLength(100)]
+    // Primitive collection: EF stores this as a JSON array in a longtext column.
+    // Do not put [MaxLength] here - it caps the whole JSON payload (e.g. varchar(100)).
     public List<string>? ArwahName { get; set; }
     
     [MaxLength(200)]
-    public string Address { get; set; } = string.Empty;
+    public string? Address { get; set; } = string.Empty;
 
     [Column(TypeName = "decimal(10,2)")]
     [Range(0, 99999999.99)]

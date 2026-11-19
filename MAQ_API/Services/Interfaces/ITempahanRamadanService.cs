@@ -5,8 +5,9 @@ namespace MAQ_API.Services;
 
 public interface ITempahanRamadanService
 {
-    Task<List<TempahanRamadan>> GetAllAsync();
-    Task<TempahanRamadan?> GetByIdAsync(int id);
+    Task<List<TempahanRamadanResponse>> GetAllAsync();
+    Task<TempahanRamadanResponse?> GetByIdAsync(int id);
+    Task<List<DonorResponse>> GetPaidDonorsAsync(DateOnly date);
     Task<TempahanRamadan> CreateAsync(TempahanRamadanRequest request);
     Task<TempahanRamadan?> UpdateAsync(int id, TempahanRamadanRequest request);
     Task<bool> DeleteAsync(int id);

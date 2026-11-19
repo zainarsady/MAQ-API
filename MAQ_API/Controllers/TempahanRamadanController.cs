@@ -14,8 +14,19 @@ public class TempahanRamadanController(ITempahanRamadanService service) : Contro
 {
     [HttpGet]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<ActionResult<List<TempahanRamadan>>> GetTempahanRamadan() =>
+    public async Task<ActionResult<List<TempahanRamadanResponse>>> GetTempahanRamadan() =>
         Ok(await service.GetAllAsync());
+
+    /// <summary>Public list of names for a date, limited to bookings with a successful payment.</summary>
+    [HttpGet("donors")]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<DonorResponse>>> GetDonors([FromQuery] DateOnly? date)
+    {
+        if (date is null)
+            return BadRequest(new ProblemDetails { Title = "Invalid date", Detail = "Query parameter 'date' is required (yyyy-MM-dd).", Status = 400 });
+
+        return Ok(await service.GetPaidDonorsAsync(date.Value));
+    }
 
     [HttpGet("availability")]
     public async Task<ActionResult<List<DateAvailabilityResponse>>> GetAvailability(
@@ -33,7 +44,7 @@ public class TempahanRamadanController(ITempahanRamadanService service) : Contro
 
     [HttpGet("{id:int}")]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<ActionResult<TempahanRamadan>> GetTempahanRamadanById(int id)
+    public async Task<ActionResult<TempahanRamadanResponse>> GetTempahanRamadanById(int id)
     {
         var booking = await service.GetByIdAsync(id);
         return booking is null ? NotFound() : Ok(booking);
