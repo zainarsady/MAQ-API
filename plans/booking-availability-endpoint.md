@@ -1,14 +1,23 @@
 # Plan: Remaining-bookings-per-date endpoint
 
 ## Context
-Frontend needs to know how many slots are left on each date. Remaining = `MaxBookingsPerDay` (20, currently a private const in `TempahanRamadanService`) minus bookings made that day whose payment is approved.
+Frontend needs to know how many slots are left on each date. Remaining = `MaxBookingsPerDay` (20) minus **slots** booked that day whose payment is approved.
+
+**Slots, not rows.** The frontend sells 1-20 slots at RM300 each in one booking, and the API has no quantity field: a 3-slot booking is one `TempahanRamadan` row with `Amount = 900`. So `slots = Amount / SlotPrice (300)` and everything (availability, cap check) sums slots instead of counting rows. DTO names (`maxBookings`, `booked`, `remaining`) are unchanged but now mean slots.
 
 "Booking made that day" = a `TempahanRamadan` row with that `BookedDate` that has a `Payment` (`Payment.TempahanRamadanId`) with a successful status.
 
 ## Open points (confirm before implementing)
 1. **"Approved" status**: `PaymentStatus` only has `Pending, Paid, Failed`. There is no `Approved`. Assumed `Paid` (set by the Herepay callback). If you want a new enum value, it needs a model change (the column is stored as a string, so no migration for the enum itself).
 2. **Consistency with the existing cap**: `EnsureRulesAsync` currently counts *all* bookings (paid or not) toward the 20/day limit. If this endpoint only counts Paid, a date can show slots left but POST returns 409 (unpaid bookings fill the cap). Options: (a) leave as is, (b) change `EnsureRulesAsync` to use the same paid-only count (risk: overbooking while payments are pending). Recommend (a) for now and flagging it; decide later.
-3. Count each booking once even if it has several Payment rows (e.g. a failed attempt then a paid one) — use `Any`, not a join+count.
+3. **Amount validation (added)**: POST/PUT reject any `Amount` that is not a multiple of 300 between 300 and 6000 (400), so `Amount / 300` is always an exact slot count. Seed rows (350, 500) predate this rule.
+4. Count each booking once even if it has several Payment rows (e.g. a failed attempt then a paid one) — use `Any`, not a join+count.
+
+## Decisions (implemented)
+- Point 2 resolved as (a): the cap check keeps counting unpaid bookings; the calendar counts paid only. The frontend must handle a 409 even when the calendar showed free slots.
+- Cap check = existing slots on the date (excluding the booking being edited) + requested slots; 409 if over 20.
+- The check-then-insert is serialised per date with a MySQL `GET_LOCK('maq:booking:<date>')` held on one connection (the old check was racy: two parallel POSTs both passed).
+- Availability sums `(int)(Amount / 300)` in SQL (translates with Pomelo).
 
 ## Steps
 
@@ -32,7 +41,7 @@ Frontend needs to know how many slots are left on each date. Remaining = `MaxBoo
    if (to   is not null) q = q.Where(t => t.BookedDate <= to);
 
    var counts = await q.GroupBy(t => t.BookedDate)
-       .Select(g => new { Date = g.Key, Booked = g.Count() })
+       .Select(g => new { Date = g.Key, Booked = g.Sum(t => (int)(t.Amount / SlotPrice)) })
        .ToListAsync();
    ```
    - Map to `DateAvailabilityResponse` with `Remaining = Math.Max(0, Max - Booked)`, ordered by date.
@@ -52,10 +61,15 @@ Frontend needs to know how many slots are left on each date. Remaining = `MaxBoo
 6. **Index** (optional, only if slow) — `Payments(TempahanRamadanId, Status)` composite index in `AppDbContext`, plus migration. Data volume is small, so skip unless needed.
 
 7. **Tests** — `MAQ_API.Tests/` (project exists, currently untracked)
-   - Paid booking counts, Pending/Failed does not.
+   - Paid booking counts, Pending/Failed does not. A 3-slot paid booking gives Booked = 3.
    - Booking with two payments (Failed + Paid) counts once.
    - Full day returns `Remaining = 0`, never negative.
    - Range fill returns empty days with 20.
+   - Two paid 10-slot bookings give Remaining = 0.
+   - POST 5 slots on a day with 17 used -> 409; 3 slots -> 201.
+   - Amount 350 / 6300 -> 400 (also 0, 299, 6600, negatives); 300 and 6000 accepted; PUT validated.
+   - Two parallel 11-slot POSTs on an empty day: exactly one succeeds.
+   (all in `MAQ_API.Tests/Concurrency/BookingSlotsTests.cs`)
 
 ## Verification
 - `dotnet build`, `dotnet test`.

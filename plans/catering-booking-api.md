@@ -1,12 +1,12 @@
 # Plan: Catering Booking API (MVC controllers + Pomelo MySQL)
 
 ## Context
-`MAQ_API` is a fresh .NET 8 minimal-API template (only the WeatherForecast sample in `MAQ_API/Program.cs`). We need a controller-based (MVC-style) API whose main controller is `TempahanRamadanController` and inside there will be PostTempahanRamadan, GetTempahanRamadan, GetTempahanRamadanById, UpdateTempahanRamadan, DeleteTempahanRamadan, a booking system backed by MySQL via Pomelo EF Core. No users/auth yet. Business rule: ** - only 20 booking per day (the same IC number may make multiple bookings on the same day) **. Apply SOLID pragmatically — controller → service (interface) → DbContext — without a repository layer or other ceremony (EF's DbContext already is the repository/unit of work).
+`MAQ_API` is a fresh .NET 8 minimal-API template (only the WeatherForecast sample in `MAQ_API/Program.cs`). We need a controller-based (MVC-style) API whose main controller is `TempahanRamadanController` and inside there will be PostTempahanRamadan, GetTempahanRamadan, GetTempahanRamadanById, UpdateTempahanRamadan, DeleteTempahanRamadan, a booking system backed by MySQL via Pomelo EF Core. No users/auth yet. Business rule: ** - only 20 slots per day (a booking buys 1-20 slots at RM300 each; the same IC number may make multiple bookings on the same day) **. Apply SOLID pragmatically — controller → service (interface) → DbContext — without a repository layer or other ceremony (EF's DbContext already is the repository/unit of work).
 
 ## Assumptions (change at approval if wrong)
 - "Dummy data" = placeholder credentials in the connection string **plus** 2 seeded bookings via `HasData`.
 - TempahanRamadan fields: `TempahanRamadanId`, `BookedDate` (DateOnly),  `CustomerName`, `ContactNumber`, `ICNumber`, `Age`, `Address`, `Amount` (money, RM), `CreatedAt`. Customer is just a string field, not a user entity.
-- **Note:** `BookedDate` is *not* unique, and there is no uniqueness on `ICNumber` either (an IC may book several times per day); the 20/day cap is enforced in the service.
+- **Note:** `BookedDate` is *not* unique, and there is no uniqueness on `ICNumber` either (an IC may book several times per day); the 20-slots/day cap is enforced in the service. There is no quantity field: slots = `Amount / 300` (a 3-slot booking is one row with `Amount = 900`).
 
 ## Steps
 
@@ -23,7 +23,7 @@
    ```
 
 3. **Entity** — `MAQ_API/Models/TempahanRamadan.cs`
-   - `[Key] int TempahanRamadanId`, `DateOnly BookedDate`, `[Required, MaxLength(100)] string CustomerName`, `[Required, MaxLength(20)] string ContactNumber`, `[Required, MaxLength(20)] string ICNumber`, `int Age` (`[Range(1, 120)]`), `[Required, MaxLength(200)] string Address`, `decimal Amount` (`[Column(TypeName = "decimal(10,2)")]`, RM, `[Range(0, double.MaxValue)]`), `DateTime CreatedAt`.
+   - `[Key] int TempahanRamadanId`, `DateOnly BookedDate`, `[Required, MaxLength(100)] string CustomerName`, `[Required, MaxLength(20)] string ContactNumber`, `[Required, MaxLength(20)] string ICNumber`, `int Age` (`[Range(1, 120)]`), `[Required, MaxLength(200)] string Address`, `decimal Amount` (`[Column(TypeName = "decimal(10,2)")]`, RM, `[BookingAmount]` on the request DTO: a multiple of 300 between 300 and 6000, else 400), `DateTime CreatedAt`.
 
 4. **DTO** — `MAQ_API/Dtos/TempahanRamadanRequest.cs`
    - Record used for POST/PUT with data annotations (no `TempahanRamadanId`/`CreatedAt`), so clients can't set server-owned fields.
@@ -35,10 +35,10 @@
 6. **Service** (SRP + DIP)
    - `MAQ_API/Services/ITempahanRamadanService.cs`: `GetAllAsync`, `GetByIdAsync`, `CreateAsync(TempahanRamadanRequest)`, `UpdateAsync(int, TempahanRamadanRequest)`, `DeleteAsync(int)`.
    - `MAQ_API/Services/TempahanRamadanService.cs`: owns the business rules — before create/update:
-     - daily cap: `CountAsync(t => t.BookedDate == date && t.TempahanRamadanId != id) >= 20`; if true, throw `DailyLimitReachedException` (limit as a `const int MaxBookingsPerDay = 20`).
+     - daily cap: `SumAsync(t => (int)(t.Amount / SlotPrice))` over the date's bookings (excluding `id`, paid or not) plus the request's slots; if the total is over 20, throw `DailyLimitReachedException(limit, remaining)` (consts `MaxBookingsPerDay = 20` slots, `SlotPrice = 300`).
      - Returns `null`/`false` for not-found.
    - `MAQ_API/Exceptions/DailyLimitReachedException.cs`: tiny custom exception.
-   - The 20/day count can race under concurrent inserts; accepted for now (could wrap in a serializable transaction later).
+   - The check and insert run under a per-date MySQL `GET_LOCK('maq:booking:<date>')` held on one connection, so parallel POSTs cannot both pass (the original check-then-insert raced; see `TestResults/LastSlotRace`).
 
 7. **Controller** — `MAQ_API/Controllers/TempahanRamadanController.cs`
    - `[ApiController] [Route("api/[controller]")]`, injects `ITempahanRamadanService` only (thin, no EF code).
@@ -69,7 +69,8 @@ Repository pattern, AutoMapper, generic base services, auth/users, pagination, a
    - `GET /api/tempahanramadan` returns the 2 seeded bookings.
    - `POST` a booking with a new IC on a date → 201.
    - `POST` another booking on the same date, with a different or the same IC → 201 (multiple per day allowed, no per-IC limit).
-   - Fill a date to 20 bookings (any ICs), then `POST` a 21st → 409.
+   - Fill a date to 20 slots (any ICs), then `POST` one more slot → 409. `POST` 5 slots on a day with 17 used → 409; 3 slots → 201.
+   - `POST`/`PUT` an amount of 350 or 6300 → 400.
    - `PUT` a booking to a full date → 409; keeping its own date → 200.
    - `POST` with `age: 0` or missing `customerName` → 400.
    - `DELETE` → 204, then `GET {id}` → 404.

@@ -60,7 +60,7 @@ Request, `Content-Type: application/json`:
 | `bankPrefix` | required, a `prefix` from the channels list, max 50 |
 | `paymentMethod` | required, exactly `Online Banking` or `Corporate Banking` |
 
-The amount, name, phone and description are **not sent**; the server takes them from the booking. Do not let the user edit an amount on the payment page. Display the booking's amount (already known from the booking response) read-only.
+The amount, name, phone and description are **not sent**; the server takes them from the booking. Do not let the user edit an amount on the payment page. The amount is `slots × RM300` (1-20 slots, so RM300-RM6000); the booking has no quantity field, so show slots as `amount / 300` if needed. Display the booking's amount (already known from the booking response) read-only.
 
 Response `200`:
 ```json

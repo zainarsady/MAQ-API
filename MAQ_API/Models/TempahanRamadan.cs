@@ -16,16 +16,16 @@ public class TempahanRamadan
     [Required, MaxLength(20)]
     public string ContactNumber { get; set; } = string.Empty;
 
-    [Required, MaxLength(20)]
+    [MaxLength(20)]
     public string ICNumber { get; set; } = string.Empty;
 
     [Range(1, 120)]
     public int Age { get; set; }
     
     [MaxLength(100)]
-    public string ArwahName { get; set; } = string.Empty;
+    public List<string>? ArwahName { get; set; }
     
-    [Required, MaxLength(200)]
+    [MaxLength(200)]
     public string Address { get; set; } = string.Empty;
 
     [Column(TypeName = "decimal(10,2)")]

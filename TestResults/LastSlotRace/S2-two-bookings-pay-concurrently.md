@@ -1,6 +1,6 @@
 # S2-two-bookings-pay-concurrently
 
-Run: 2026-11-18 12:03:14 · MySQL 8.0.36 (Testcontainers) · 20 iterations · limit 20/day
+Run: 2026-11-18 14:34:06 · MySQL 8.0.36 (Testcontainers) · 20 iterations · limit 20/day
 
 **Setup:** 19 paid + 2 unpaid bookings exist. Both customers `POST /api/payments` at once, then both Herepay success callbacks arrive at once.
 

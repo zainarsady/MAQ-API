@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MAQ_API.Helpers;
 
 namespace MAQ_API.Dtos;
 
@@ -6,8 +7,8 @@ public record TempahanRamadanRequest(
     [Required] DateOnly? BookedDate,
     [Required, MaxLength(100)] string CustomerName,
     [Required, MaxLength(20)] string ContactNumber,
-    [Required, MaxLength(20)] string ICNumber,
+    [MaxLength(20)] string ICNumber,
     [Range(1, 120)] int Age,
-    [MaxLength(100)] string? ArwahName,
-    [Required, MaxLength(200)] string Address,
-    [Range(0, 99999999.99)] decimal Amount);
+    [MaxLength(100)] List<string>? ArwahName,
+    [ MaxLength(200)] string Address,
+    [BookingAmount] decimal Amount);

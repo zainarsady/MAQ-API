@@ -1,6 +1,6 @@
 # S4-same-booking-paid-twice
 
-Run: 2026-11-18 12:03:15 · MySQL 8.0.36 (Testcontainers) · 20 iterations · limit 20/day
+Run: 2026-11-18 14:34:07 · MySQL 8.0.36 (Testcontainers) · 20 iterations · limit 20/day
 
 **Setup:** 19 paid + 1 unpaid booking. The unpaid booking's owner submits payment twice at once; both success callbacks arrive at once.
 

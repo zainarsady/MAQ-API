@@ -157,7 +157,7 @@ public class LastSlotRaceTests(ApiFixture fx, ITestOutputHelper output) : IClass
 
     private Task<HttpResponseMessage> PostBookingAsync(string who) =>
         _client.PostAsJsonAsync("/api/TempahanRamadan", new TempahanRamadanRequest(
-            Date, $"Customer {who}", "0123456789", "900101-10-1234", 30, null, "Test address", 100m));
+            Date, $"Customer {who}", "0123456789", "900101-10-1234", 30, null, "Test address", 300m));
 
     private async Task<(HttpStatusCode Status, string? Code)> InitiateAsync(int bookingId)
     {
@@ -227,7 +227,7 @@ public class LastSlotRaceTests(ApiFixture fx, ITestOutputHelper output) : IClass
         TempahanRamadan NewBooking(string name) => new()
         {
             BookedDate = Date, CustomerName = name, ContactNumber = "0123456789", ICNumber = "900101-10-1234",
-            Age = 30, Address = "Seed address", Amount = 100m, CreatedAt = now,
+            Age = 30, Address = "Seed address", Amount = 300m, CreatedAt = now,
         };
 
         var paidBookings = Enumerable.Range(1, paid).Select(i => NewBooking($"Paid {i}")).ToList();

@@ -30,6 +30,19 @@ public class FinanceLedgerTests(ApiFixture fx) : IClassFixture<ApiFixture>
         Assert.Single(list!);
     }
 
+    [Theory]
+    [InlineData("\"Donation\"")] // what the finance client sends
+    [InlineData("1")]            // numeric still accepted
+    public async Task ManualIncome_AcceptsCategoryAsNameOrNumber(string category)
+    {
+        await ResetAsync();
+        var body = new StringContent($$"""{"amount":50,"category":{{category}},"description":"Cash"}""",
+            System.Text.Encoding.UTF8, "application/json");
+        var res = await _client.PostAsync("/api/finance/transactions", body);
+        Assert.Equal(System.Net.HttpStatusCode.OK, res.StatusCode);
+        Assert.Contains("\"category\":\"Donation\"", await res.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     public async Task Finance_WithoutToken_Returns401()
     {
